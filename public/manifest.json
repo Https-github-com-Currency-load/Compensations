@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "BitComp - Bitcoin Compensation & Invoicing",
+  "short_name": "BitComp",
+  "description": "Professional Bitcoin compensation requests, live mempool verification & Gmail dispatch.",
+  "theme_color": "#020617",
+  "background_color": "#020617",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "lang": "en",
+  "orientation": "portrait-primary"
+}
