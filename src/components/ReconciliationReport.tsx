@@ -34,10 +34,13 @@ export const ReconciliationReport: React.FC<ReconciliationReportProps> = ({
     ? Math.round((totalReceived / totalAgreedCommission) * 100) 
     : 100;
 
-  // Export to CSV
+  // Export Work Items & Payment History to CSV for external accounting software
   const handleExportCSV = () => {
-    const headers = [
+    const workHeaders = [
+      'Record Type',
+      'ID',
       'Client / Payer',
+      'Client Email',
       'Deal / Project Title',
       'Category',
       'Contract Value ($)',
@@ -45,16 +48,22 @@ export const ReconciliationReport: React.FC<ReconciliationReportProps> = ({
       'Agreed Commission ($)',
       'Compensation Received ($)',
       'Balance Shortfall ($)',
+      'Contract Date',
       'Due Date',
       'Status',
-      'Invoice Ref'
+      'Invoice / Transaction Ref',
+      'Payment Method',
+      'Notes / Source'
     ];
 
-    const rows = workItems.map((item) => {
+    const workRows = workItems.map((item) => {
       const shortfall = Math.max(0, item.commissionAmount - item.compensationReceived);
       const rateStr = item.commissionType === 'percentage' ? `${item.commissionRate}%` : 'Flat';
       return [
+        'WORK_COMMISSION_ITEM',
+        `"${item.id}"`,
         `"${item.clientName.replace(/"/g, '""')}"`,
+        `"${(item.clientEmail || '').replace(/"/g, '""')}"`,
         `"${item.dealTitle.replace(/"/g, '""')}"`,
         item.dealType,
         item.dealValue,
@@ -62,20 +71,96 @@ export const ReconciliationReport: React.FC<ReconciliationReportProps> = ({
         item.commissionAmount,
         item.compensationReceived,
         shortfall,
+        item.contractDate,
         item.dueDate,
         item.status,
         `"${(item.invoiceRef || '').replace(/"/g, '""')}"`,
+        `"${(item.paymentMethod || '').replace(/"/g, '""')}"`,
+        `"${(item.notes || '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`,
       ].join(',');
     });
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const paymentRows = payments.map((p) => {
+      const linkedItem = workItems.find((w) => w.id === p.workId);
+      return [
+        'COMPENSATION_PAYMENT',
+        `"${p.id}"`,
+        `"${(linkedItem?.clientName || '').replace(/"/g, '""')}"`,
+        `"${(linkedItem?.clientEmail || '').replace(/"/g, '""')}"`,
+        `"${(linkedItem?.dealTitle || `Work ID: ${p.workId}`).replace(/"/g, '""')}"`,
+        linkedItem?.dealType || '',
+        linkedItem?.dealValue || '',
+        '',
+        linkedItem?.commissionAmount || '',
+        p.amount,
+        0,
+        p.paymentDate,
+        linkedItem?.dueDate || '',
+        'SETTLED_REMITTANCE',
+        `"${(p.referenceOrTransactionId || '').replace(/"/g, '""')}"`,
+        `"${(p.paymentMethod || '').replace(/"/g, '""')}"`,
+        `"${(p.notes || p.sourceEmailSubject || '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`,
+      ].join(',');
+    });
+
+    const csvLines = [workHeaders.join(','), ...workRows, ...paymentRows].join('\n');
+    const blob = new Blob([csvLines], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Commission_Compensation_Reconciliation_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('href', url);
+    link.setAttribute(
+      'download',
+      `Commission_Accounting_Ledger_${new Date().toISOString().split('T')[0]}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPaymentsOnlyCSV = () => {
+    const headers = [
+      'Payment ID',
+      'Work Deal ID',
+      'Client / Payer',
+      'Deal Title',
+      'Payment Date',
+      'Amount Received ($)',
+      'Payment Method',
+      'Transaction / Reference ID',
+      'Source Gmail Subject',
+      'Notes'
+    ];
+
+    const rows = payments.map((p) => {
+      const item = workItems.find((w) => w.id === p.workId);
+      return [
+        `"${p.id}"`,
+        `"${p.workId}"`,
+        `"${(item?.clientName || '').replace(/"/g, '""')}"`,
+        `"${(item?.dealTitle || '').replace(/"/g, '""')}"`,
+        p.paymentDate,
+        p.amount,
+        `"${(p.paymentMethod || '').replace(/"/g, '""')}"`,
+        `"${(p.referenceOrTransactionId || '').replace(/"/g, '""')}"`,
+        `"${(p.sourceEmailSubject || '').replace(/"/g, '""')}"`,
+        `"${(p.notes || '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`,
+      ].join(',');
+    });
+
+    const csvLines = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvLines], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute(
+      'download',
+      `Compensation_Payment_History_${new Date().toISOString().split('T')[0]}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handlePrint = () => {
@@ -104,10 +189,18 @@ export const ReconciliationReport: React.FC<ReconciliationReportProps> = ({
             <button
               type="button"
               onClick={handleExportCSV}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export Full Ledger CSV
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPaymentsOnlyCSV}
               className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
             >
               <Download className="h-3.5 w-3.5" />
-              Export CSV
+              Payments CSV
             </button>
             <button
               type="button"

@@ -34,6 +34,7 @@ import { GmailScannerModal } from './components/GmailScannerModal.tsx';
 import { ReconciliationReport } from './components/ReconciliationReport.tsx';
 import { CommissionCalculatorModal } from './components/CommissionCalculatorModal.tsx';
 import { AnalyticsCharts } from './components/AnalyticsCharts.tsx';
+import { ServiceSyncPanel } from './components/ServiceSyncPanel.tsx';
 import { GoogleSignInButton } from './components/GoogleSignInButton.tsx';
 
 import { 
@@ -422,6 +423,18 @@ export default function App() {
         <CommissionSummaryCards
           items={workItems}
           onFilterStatus={(status) => setFilterStatus(status)}
+        />
+
+        {/* Connected Services & Live Data Fetch Hub */}
+        <ServiceSyncPanel
+          workItems={workItems}
+          payments={payments}
+          hasToken={hasToken}
+          userEmail={user?.email}
+          onLogin={handleGoogleLogin}
+          onOpenScanner={() => setIsScannerModalOpen(true)}
+          onOpenReport={() => setIsReportModalOpen(true)}
+          onSelectPaymentFromEmail={handleSelectPaymentFromEmail}
         />
 
         {/* Analytics Visualizations */}
